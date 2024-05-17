@@ -126,12 +126,6 @@ for steps in range(7000): # increase number of steps for good results...
     
     # evaluate the loss
     logits, loss = m(xb, yb)
-    if steps % 500 == 0:
-        for param in m.parameters():
-            print(param[-1])
-
-        print(f"loss = {loss}")
-
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
