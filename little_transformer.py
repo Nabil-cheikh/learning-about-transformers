@@ -9,7 +9,7 @@ with open('input.txt', 'r', encoding='utf-8') as f:
 # here are all the unique characters that occur in this text
 chars = sorted(list(set(text)))
 vocab_size = len(chars)
-print(''.join(chars))
+# print(''.join(chars))
 # print(vocab_size)
 
 class BigramLanguageModel(nn.Module):
@@ -118,18 +118,56 @@ m = BigramLanguageModel(vocab_size)
 optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
 
 batch_size = 32
-block_size = 16
-for steps in range(7000): # increase number of steps for good results...
+block_size = 8
+# for steps in range(5000): # increase number of steps for good results...
 
-    # sample a batch of data
-    xb, yb = get_batch('train')
+#     # sample a batch of data
+#     xb, yb = get_batch('train')
     
-    # evaluate the loss
-    logits, loss = m(xb, yb)
-    optimizer.zero_grad(set_to_none=True)
-    loss.backward()
-    optimizer.step()
+#     # evaluate the loss
+#     logits, loss = m(xb, yb)
+#     optimizer.zero_grad(set_to_none=True)
+#     loss.backward()
+#     optimizer.step()
 
-print(loss.item())
+# print(loss.item())
 
-print(decode(m.generate(idx = torch.zeros((1, 1), dtype=torch.long), max_new_tokens=500)[0].tolist()))
+# print(decode(m.generate(idx = torch.zeros((1, 1), dtype=torch.long), max_new_tokens=500)[0].tolist()))
+
+# toy example illustrating how matrix multiplication can be used for a "weighted aggregation"
+torch.manual_seed(42)
+a = torch.tril(torch.ones(3, 3))
+a = a / torch.sum(a, 1, keepdim=True)
+b = torch.randint(0,10,(3,2)).float()
+c = a @ b
+
+
+# consider the following toy example:
+
+torch.manual_seed(1337)
+B,T,C = 4,8,2 # batch, time, channels
+x = torch.randn(B,T,C)
+x.shape
+
+# We want x[b,t] = mean_{i<=t} x[b,i]
+xbow = torch.zeros((B,T,C))
+for b in range(B):
+    for t in range(T):
+        xprev = x[b,:t+1] # (t,C)
+        xbow[b,t] = torch.mean(xprev, 0)
+
+
+# version 2: using matrix multiply for a weighted aggregation
+wei = torch.tril(torch.ones(T, T))
+wei = wei / wei.sum(1, keepdim=True)
+xbow2 = wei @ x # (B, T, T) @ (B, T, C) ----> (B, T, C)
+
+print(torch.allclose(xbow, xbow2, rtol=1e-04))
+
+# version 3: use Softmax
+tril = torch.tril(torch.ones(T, T))
+wei = torch.zeros((T,T))
+wei = wei.masked_fill(tril == 0, float('-inf'))
+wei = F.softmax(wei, dim=-1)
+xbow3 = wei @ x
+print(torch.allclose(xbow, xbow3, rtol=1e-04))
